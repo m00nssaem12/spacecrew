@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>스페이스 크루</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbit&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+:root{
+  --bg:#070b24; --panel:rgba(18,26,66,.82); --line:rgba(140,170,255,.22); --text:#e8ecff; --muted:#9aa6d6;
+  --p:#e0468d; --b:#2f7fe0; --g:#34a853; --y:#f2c12e; --r:#23242e; --gold:#f6c453; --purple:#7a4fd6;
+  --ok:#34d399; --bad:#f87171;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  font-weight:400;font-family:'Noto Sans KR',system-ui,sans-serif;color:var(--text);background:var(--bg);
+  background-image:
+    radial-gradient(1px 1px at 12% 18%,#fff8 50%,transparent 51%),
+    radial-gradient(1px 1px at 72% 12%,#fff9 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 38% 62%,#fff7 50%,transparent 51%),
+    radial-gradient(1px 1px at 88% 72%,#fff8 50%,transparent 51%),
+    radial-gradient(1px 1px at 22% 86%,#fff6 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 58% 34%,#fff8 50%,transparent 51%),
+    radial-gradient(900px 500px at 85% -10%,#3b2a7a55,transparent 60%),
+    radial-gradient(700px 500px at -10% 110%,#12508a55,transparent 60%);
+  background-attachment:fixed;
+}
+button{font-family:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:12px 12px 40px}
+h1.logo{font-family:'Orbit',sans-serif;font-size:clamp(40px,9vw,76px);margin:28px 0 4px;letter-spacing:2px;
+  background:linear-gradient(180deg,#fff 0%,#bcd0ff 55%,#7d8cff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;text-align:center}
+.sub{text-align:center;color:var(--muted);margin-bottom:24px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;backdrop-filter:blur(4px)}
+.btn{border:0;border-radius:12px;padding:10px 16px;font-weight:500;font-size:15px;cursor:pointer;color:#10132a;background:#dfe6ff;transition:transform .08s,filter .15s}
+.btn:hover{filter:brightness(1.08)}.btn:active{transform:scale(.97)}
+.btn.pri{background:linear-gradient(180deg,#8fb0ff,#5a78ff);color:#fff}
+.btn.gold{background:linear-gradient(180deg,#ffe08a,#f0b43a);color:#3a2600}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.btn.red{background:linear-gradient(180deg,#ff8f8f,#e24b4b);color:#fff}
+.btn.grn{background:linear-gradient(180deg,#6ee7b7,#22a06b);color:#05291b}
+.btn.sm{padding:6px 10px;font-size:13px;border-radius:9px}
+.btn[disabled]{opacity:.35;cursor:not-allowed}
+input.inp{background:#0d1440;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-size:16px;width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.muted{color:var(--muted)}
+.home{max-width:460px;margin:0 auto;display:grid;gap:14px}
+.home label{font-size:13px;color:var(--muted);display:block;margin-bottom:4px}
+.foot{text-align:center;color:#6f7bb0;font-size:12px;margin-top:26px}
+
+/* top bar */
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.top .ttl{font-family:'Orbit';font-size:26px;letter-spacing:1px}
+.mbadge{background:linear-gradient(180deg,#2b3a8c,#1a2460);border:1px solid #5c6fd8;border-radius:999px;padding:4px 12px;font-weight:500}
+.spacer{flex:1}
+.mission{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
+.mission .rules{flex:1;min-width:240px;font-size:14px;line-height:1.55}
+.mission .rules div{margin:2px 0}
+.dtoken{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-size:22px;border:2px solid #556;background:#1a1f3a;filter:grayscale(1);opacity:.6}
+.dtoken.on{filter:none;opacity:1;background:radial-gradient(circle,#ffcf5c,#e0851d);border-color:#ffe39b;box-shadow:0 0 16px #ffb13b88}
+
+/* seats */
+.seats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:10px}
+.seat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;position:relative;min-height:112px}
+.seat.turn{border-color:#9fb4ff;box-shadow:0 0 0 2px #7d95ff66,0 0 22px #5d7bff44}
+.seat.me{background:linear-gradient(180deg,rgba(40,56,130,.9),rgba(18,26,66,.85))}
+.seat .nm{font-weight:500;font-size:15px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.seat .info{font-size:12px;color:var(--muted);margin:3px 0 6px}
+.cmd{background:linear-gradient(180deg,#ffe28a,#e9a92c);color:#3b2700;font-size:11px;padding:2px 7px;border-radius:999px;font-weight:700}
+.tag{font-size:11px;padding:2px 7px;border-radius:999px;background:#2c3677;border:1px solid #5d6bc9}
+.tag.warn{background:#5a1f3a;border-color:#c0457a}
+.seat .area{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
+.tasks{display:flex;gap:5px;flex-wrap:wrap}
+.offline{opacity:.55}
+
+/* cards */
+.card{--c:#888;width:64px;height:94px;border-radius:9px;position:relative;flex:none;cursor:default;
+  background:#fbfbff;padding:3px;box-shadow:0 3px 8px #0007;user-select:none;transition:transform .12s,box-shadow .12s}
+.card .face{position:absolute;inset:3px;border-radius:6px;overflow:hidden;
+  background:radial-gradient(circle at 30% 20%,#ffffff55,transparent 45%),linear-gradient(160deg,var(--c),color-mix(in srgb,var(--c) 55%,#000))}
+.card .n{position:absolute;font-family:'Orbit';font-size:24px;line-height:1;color:#fff;
+  text-shadow:0 0 3px #000c,0 1px 1px #000a}
+.card .n.tl{top:4px;left:6px}.card .n.br{bottom:4px;right:6px;transform:rotate(180deg)}
+.card .art{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);width:70%}
+.card .sym{position:absolute;top:5px;right:6px;font-size:11px;color:#fff;opacity:.9}
+.card.s-p{--c:var(--p)}.card.s-b{--c:var(--b)}.card.s-g{--c:var(--g)}.card.s-y{--c:var(--y)}
+.card.s-y .n{color:#fff}
+.card.s-r{--c:#3a3c4d;background:#e9e2cf}
+.card.s-r .face{background:radial-gradient(circle at 50% 110%,#ff8a3d66,transparent 55%),linear-gradient(160deg,#3c3e52,#15161f)}
+.card.sm{width:44px;height:64px;border-radius:7px;padding:2px}
+.card.sm .face{inset:2px}
+.card.sm .n{font-size:17px}.card.sm .sym{font-size:9px}
+.card.back .face{background:repeating-linear-gradient(45deg,#1b2566 0 6px,#16205a 6px 12px);border:2px solid #3b4aa8}
+.card.back .face::after{content:'✦';position:absolute;inset:0;display:grid;place-items:center;color:#8fa2ff;font-size:20px}
+.card.playable{cursor:pointer}
+.card.playable:hover{transform:translateY(-8px);box-shadow:0 10px 18px #0009}
+.card.dim{filter:brightness(.45) saturate(.6)}
+.card.sel{transform:translateY(-10px);box-shadow:0 0 0 3px #fff,0 10px 18px #0009}
+.card.win{box-shadow:0 0 0 3px var(--gold),0 0 20px #f6c45399}
+
+/* task cards */
+.task{width:34px;height:46px;border-radius:6px;background:#fbfbff;padding:2px;position:relative;flex:none;box-shadow:0 2px 5px #0006}
+.task .tf{position:absolute;inset:2px;border-radius:4px;background:linear-gradient(160deg,var(--c),color-mix(in srgb,var(--c) 55%,#000));display:grid;place-items:center;
+  font-family:'Orbit';color:#fff;font-size:18px;text-shadow:0 0 3px #000a}
+.task.s-p{--c:var(--p)}.task.s-b{--c:var(--b)}.task.s-g{--c:var(--g)}.task.s-y{--c:var(--y)}
+.task.done .tf{filter:grayscale(.7) brightness(.55)}
+.task.done::after{content:'✔';position:absolute;inset:0;display:grid;place-items:center;color:var(--ok);font-size:22px;font-weight:900;text-shadow:0 0 4px #000}
+.task.lg{width:52px;height:72px}.task.lg .tf{font-size:26px}
+.task.click{cursor:pointer}.task.click:hover{transform:translateY(-4px)}
+.task.sel{box-shadow:0 0 0 3px #fff}
+.task.facedown .tf{background:repeating-linear-gradient(45deg,#1b2566 0 5px,#16205a 5px 10px);color:#8fa2ff}
+.tok{position:absolute;right:-7px;top:-7px;min-width:22px;height:22px;padding:0 4px;border-radius:6px;background:linear-gradient(180deg,#9b72f0,#6437c4);
+  color:#fff;font-weight:900;font-size:12px;display:grid;place-items:center;border:1.5px solid #d6c6ff;box-shadow:0 2px 4px #0008;letter-spacing:-2px}
+
+/* communication */
+.comm{position:relative;display:flex;align-items:center;gap:4px}
+.rtok{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;border:2px solid #fff;box-shadow:0 1px 4px #000a}
+.rtok.g{background:radial-gradient(circle,#6ff0a6,#18a257)}
+.rtok.r{background:radial-gradient(circle,#ff8f8f,#c02b2b)}
+.comm .card .rtok{position:absolute;left:50%;transform:translate(-50%,-50%);z-index:2}
+.rtok.top{top:10%}.rtok.mid{top:50%}.rtok.bot{top:90%}
+.commtxt{font-size:11px;color:var(--muted)}
+
+/* jarvis */
+.jcols{display:flex;gap:4px;flex-wrap:wrap}
+.jcol{position:relative;width:44px;height:78px}
+.jcol .card{position:absolute;left:0}
+.jcol .card.down{top:0}.jcol .card.up{top:14px}
+
+/* center */
+.center{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:10px;margin-bottom:10px}
+@media (max-width:760px){.center{grid-template-columns:1fr}}
+.trickbox{min-height:170px;display:flex;flex-direction:column}
+.trickbox h3,.act h3{margin:0 0 8px;font-size:15px;font-weight:500}
+b{font-weight:500}
+.modal h4{font-weight:500}
+.trick{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;justify-content:center;flex:1}
+.tc{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px}
+.act{line-height:1.5}
+.act .q{font-size:14px;margin-bottom:8px}
+.act .ans{font-size:13px;color:var(--muted);margin:6px 0}
+.pool{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;padding:6px}
+.hand{min-height:120px}
+.handcards{display:flex;gap:6px;flex-wrap:wrap;padding-top:10px}
+.log{font-size:12.5px;color:var(--muted);max-height:150px;overflow:auto;margin-top:10px}
+.log div{padding:2px 0;border-bottom:1px dashed #ffffff10}
+.result{text-align:center;padding:10px}
+.result .big{font-family:'Orbit';font-size:34px;margin-bottom:6px}
+.result.ok .big{color:var(--ok)}.result.bad .big{color:var(--bad)}
+
+/* modal */
+.modal{position:fixed;inset:0;background:#000a;display:grid;place-items:center;z-index:50;padding:14px}
+.modal .box{max-width:760px;width:100%;max-height:88vh;overflow:auto;background:#10173f;border:1px solid var(--line);border-radius:16px;padding:18px}
+.modal h2{margin-top:0;font-family:'Orbit';font-weight:400}
+.modal h4{margin:14px 0 4px;color:#b9c6ff}
+.modal p,.modal li{font-size:14px;line-height:1.6}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+.mbtn{border:1px solid var(--line);background:#141d52;color:var(--text);border-radius:10px;padding:8px 4px;cursor:pointer;font-weight:500;font-size:15px;position:relative}
+.mbtn small{display:block;font-weight:400;font-size:10.5px;color:var(--muted)}
+.mbtn.done{background:#153f35;border-color:#2c8f6c}
+.mbtn.gold::after{content:'★';position:absolute;top:2px;right:5px;font-size:10px;color:var(--gold)}
+.mbtn.sel{outline:2px solid #fff}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#222a5c;border:1px solid #6d7de0;padding:10px 16px;border-radius:12px;z-index:60;font-size:14px}
+.players{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.pchip{background:#1b2566;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:400}
+.code{font-family:'Orbit';font-size:44px;letter-spacing:8px;text-align:center;color:#fff}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* =========================================================
+   🔥 Firebase 설정 — 본인 프로젝트 값으로 바꿔 넣으세요
+   (Firebase 콘솔 → 프로젝트 설정 → 내 앱 → SDK 설정 및 구성)
+   Realtime Database를 만들고 databaseURL을 꼭 넣어 주세요.
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyBc6YBfGNsEzoNsHSqcVPxksYGmWWL8suM",
+  authDomain: "spacecrew-bea01.firebaseapp.com",
+  databaseURL: "https://spacecrew-bea01-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "spacecrew-bea01",
+  storageBucket: "spacecrew-bea01.firebasestorage.app",
+  messagingSenderId: "212666805135",
+  appId: "1:212666805135:web:8f9f0851ef6bbb994979fa"
+};
+
+/* ===================== LOGIC START ===================== */
+const SUITS=['p','b','g','y'];
+const SN={p:'분홍',b:'파랑',g:'초록',y:'노랑',r:'로켓'};
+const SYM={p:'✦',b:'●',g:'▲',y:'■',r:''};
+const ORD={p:0,b:1,g:2,y:3,r:4};
+const suit=c=>c[0], val=c=>+c.slice(1);
+const cn=c=>SN[suit(c)]+' '+val(c);
+const TK={'1':'1','2':'2','3':'3','4':'4','5':'5',a1:'›',a2:'››',a3:'›››',a4:'››››',O:'Ω'};
+const TKNAME={'1':'1번째','2':'2번째','3':'3번째','4':'4번째','5':'5번째',a1:'›',a2:'››',a3:'›››',a4:'››››',O:'Ω(마지막)'};
+function sortHand(h){h.sort((a,b)=>ORD[suit(a)]-ORD[suit(b)]||val(a)-val(b));return h;}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function colorDeck(){const d=[];for(const s of SUITS)for(let v=1;v<=9;v++)d.push(s+v);return d;}
+function fullDeck(){return colorDeck().concat(['r1','r2','r3','r4']);}
+
+/* 미션 데이터: t=과제 수, tk=과제 토큰(앞 카드부터 순서대로), dead=통신 불량(데드존), dis=해당 트릭부터 통신 가능,
+   cd=사령관 배분, sp=특수 규칙, 금색★=5인 추가 규칙 적용 미션 */
+const MIS={
+1:{t:1},2:{t:2},3:{t:2,tk:['1','2']},4:{t:3},5:{sp:'sick'},
+6:{t:3,tk:['a1','a2'],dead:1},7:{t:3,tk:['O']},8:{t:3,tk:['1','2','3']},9:{sp:'one'},10:{t:4},
+11:{t:4,tk:['1'],sp:'mute'},12:{t:4,tk:['O'],sp:'steal'},13:{sp:'rockets'},14:{t:4,tk:['a1','a2','a3'],dead:1},15:{t:4,tk:['1','2','3','4']},
+16:{sp:'no9'},17:{t:2,sp:'no9'},18:{t:5,dis:2},19:{t:5,tk:['1'],dis:3},20:{t:2,cd:1},
+21:{t:5,tk:['1','2'],dead:1},22:{t:5,tk:['a1','a2','a3','a4']},23:{t:5,tk:['1','2','3','4','5'],sp:'swap'},24:{t:6,cd:1},25:{t:6,tk:['a1','a2'],dead:1},
+26:{sp:'two1'},27:{t:3,cd:1},28:{t:6,tk:['1','O'],dis:3},29:{sp:'even',dead:1},30:{t:6,tk:['a1','a2','a3'],dis:2},
+31:{t:6,tk:['1','2','3']},32:{t:7,cd:1},33:{sp:'one_trick'},34:{sp:'cmd_fl'},35:{t:7,tk:['a1','a2','a3']},
+36:{t:7,tk:['1','2'],cd:1},37:{t:4,cd:1},38:{t:8,dis:3},39:{t:8,tk:['a1','a2','a3'],dead:1},40:{t:8,tk:['1','2','3'],sp:'move'},
+41:{sp:'first_last'},42:{t:9},43:{t:9,cd:1},44:{sp:'rockets_order'},45:{t:9,tk:['a1','a2','a3']},
+46:{sp:'pink'},47:{t:10},48:{t:3,tk:['O'],sp:'omega_last'},49:{t:10,tk:['a1','a2','a3']},50:{sp:'ab'}};
+const GOLD=[25,27,28,30,31,32,35,36,37,38,39,40,42,43,45,47,48,49];
+GOLD.forEach(m=>MIS[m].g=1);
+const SPTXT={
+ sick:'사령관이 모두에게 컨디션을 물어요(“좋음/나쁨”만 답할 수 있음). 사령관이 아픈 대원 1명을 지목(자기 자신 제외) — 그 대원은 트릭을 하나도 이기면 안 돼요.',
+ one:'숫자 1인 색깔 카드로 트릭을 한 번 이겨야 해요.',
+ mute:'사령관이 대원 1명을 지목해요 — 그 대원은 이번 미션에서 통신할 수 없어요.',
+ steal:'첫 번째 트릭이 끝나면 모두 오른쪽 대원의 손에서 카드 1장을 무작위로 가져와요.',
+ rockets:'로켓 1·2·3·4가 각각 트릭을 한 번씩 이겨야 해요.',
+ no9:'숫자 9 카드로 트릭을 이기면 안 돼요.',
+ swap:'과제를 고르기 전에 과제 토큰 2개의 위치를 서로 바꿀 수 있어요.',
+ two1:'숫자 1인 색깔 카드가 서로 다른 트릭 2개를 이겨야 해요.',
+ even:'어느 순간에도 한 대원이 다른 대원보다 트릭을 2개 이상 더 가져가면 안 돼요.',
+ one_trick:'사령관이 준비됐는지 물어요(“예/아니오”만). 사령관이 대원 1명 지목(자신 제외) — 그 대원은 트릭을 정확히 1개 이겨야 하고, 로켓으로 이기면 안 돼요.',
+ cmd_fl:'사령관이 첫 번째와 마지막 트릭을 이겨야 해요. 또한 어느 순간에도 한 대원이 다른 대원보다 트릭을 2개 이상 더 가져가면 안 돼요.',
+ move:'과제를 고르기 전에 토큰 1개를 토큰이 없는 과제 카드로 옮길 수 있어요.',
+ first_last:'사령관이 준비됐는지 물어요(“예/아니오”만). 사령관이 대원 1명 지목(자신 제외) — 그 대원은 첫 번째와 마지막 트릭만 이겨야 하고, 둘 다 로켓으로 이기면 안 돼요.',
+ rockets_order:'로켓이 1 → 2 → 3 → 4 순서로 각각 트릭을 이겨야 해요.',
+ pink:'분홍 9를 가진 대원을 공개해요. 그 대원의 왼쪽 대원이 분홍 카드 9장을 모두 이겨서 가져가야 해요.',
+ omega_last:'Ω 과제는 반드시 마지막 트릭에서 완료해야 해요.',
+ ab:'각자 원하는 역할을 밝힌 뒤 함께 정해요. 대원 A는 1~4번째 트릭만, 대원 B는 마지막 트릭만 이기고, 그 사이 트릭은 나머지 대원들이 이겨야 해요.'
+};
+function missionLines(m,n){
+  const M=MIS[m],L=[];
+  if(M.t) L.push(`📋 과제 ${M.t}개`+(M.tk?` · 토큰 ${M.tk.map(k=>TK[k]).join(' ')}`:''));
+  if(M.cd) L.push('👑 사령관의 배분: 사령관이 과제를 한 장씩 공개하고, 각자 맡을지 “예/아니오”로 답하면 사령관이 배정해요(자신도 가능, 과제 수 차이 최대 1).');
+  if(M.sp) L.push('⭐ '+SPTXT[M.sp]);
+  if(M.dead) L.push('📵 통신 불량(데드존): 통신할 때 카드만 내려놓고 토큰은 빨간 면으로 옆에 둬요(최고/유일/최저 조건은 지켜야 함).');
+  if(M.dis) L.push(`📡 통신 방해: ${M.dis}번째 트릭 시작 전부터 통신할 수 있어요.`);
+  if(M.g && n===5 && M.t) L.push('🌟 5인 규칙: 과제 배분 후 첫 트릭 전에, 대원 1명이 자기 과제 1장을 다른 대원에게 넘길 수 있어요.');
+  return L;
+}
+
+const isJ=(s,i)=>!!(s.seats&&s.seats[i]&&s.seats[i].J);
+const nm=(s,i)=>s.seats[i].name;
+function H(s){return s.seats.map((x,i)=>i).filter(i=>!isJ(s,i));}
+function ctrl(s,i){return isJ(s,i)?s.seats[s.commander].pid:s.seats[i].pid;}
+function say(s,m){s.msgs.push(m);if(s.msgs.length>60)s.msgs.shift();}
+function turn(s){return (s.trick.leader+s.trick.cards.length)%s.seats.length;}
+
+function newRoom(host){return {v:1,players:[host],phase:'lobby',log:{},msgs:[],missionNo:1,attempt:1,distressActive:false};}
+function buildSeats(s){
+  s.jarvis=s.players.length===2;
+  s.seats=s.players.map(p=>({name:p.name,pid:p.id}));
+  if(s.jarvis) s.seats.push({name:'JARVIS',pid:null,J:true});
+}
+function handOf(s,i){return isJ(s,i)?s.jcols.filter(c=>c.u).map(c=>c.u):s.hands[i];}
+function allCardsOf(s,i){return isJ(s,i)?s.jcols.flatMap(c=>[c.u,c.d].filter(Boolean)):s.hands[i];}
+
+function startAttempt(s){
+  const n=s.seats.length,M=MIS[s.missionNo];
+  let d=shuffle(fullDeck());
+  s.hands=s.seats.map(()=>[]);s.jcols=null;
+  if(s.jarvis){
+    d=d.filter(c=>c!=='r4');
+    const down=d.splice(0,7),up=d.splice(0,7);
+    s.jcols=down.map((c,i)=>({d:c,u:up[i]}));
+    d.push('r4');d=shuffle(d);
+    s.hands[0]=d.slice(0,13);s.hands[1]=d.slice(13);
+  }else{
+    const st=Math.floor(Math.random()*n);
+    d.forEach((c,i)=>s.hands[(st+i)%n].push(c));
+  }
+  s.hands.forEach(sortHand);
+  s.commander=s.hands.findIndex(h=>h.includes('r4'));
+  s.total=s.jarvis?13:Math.floor(40/n);
+  s.tasks=[];s.comm=s.seats.map(()=>null);
+  s.trick={leader:s.commander,cards:[]};s.trickNo=1;
+  s.tricksWon=s.seats.map(()=>0);s.wonCards=s.seats.map(()=>[]);
+  s.lastTrick=null;s.doneCount=0;s.result=null;s.pass=null;s.cd=null;s.pickTurn=null;
+  s.sp={ans:{},rw:[],ones:0,prefs:{}};
+  if(M.t){
+    const td=shuffle(colorDeck()).slice(0,M.t),tk=M.tk||[];
+    s.tasks=td.map((c,i)=>({c,tk:tk[i]||null,o:null,done:false}));
+  }
+  say(s,`── 미션 ${s.missionNo} · ${s.attempt}번째 시도 ── 사령관: ${nm(s,s.commander)} (로켓 4)`);
+  if(M.sp==='pink'){
+    let owner=-1;for(let i=0;i<n;i++)if(allCardsOf(s,i).includes('p9'))owner=i;
+    s.sp.pinkOwner=owner;s.sp.target=(owner+1)%n;
+    say(s,`분홍 9는 ${nm(s,owner)}에게 있어요 → ${nm(s,s.sp.target)}이(가) 분홍 카드를 모두 가져가야 해요`);
+  }
+  const f=[];
+  if(['sick','one_trick','first_last','mute'].includes(M.sp))f.push('ask');
+  if(M.sp==='ab')f.push('ab');
+  if(M.t){
+    if(M.cd)f.push('cdist');
+    else{if(M.sp==='swap'||M.sp==='move')f.push('adjust');f.push('pick');}
+    if(n===5&&M.g)f.push('transfer');
+  }
+  f.push('distress','play');
+  s.flow=f;s.phase='init';nextPhase(s);
+}
+function nextPhase(s){
+  const ph=s.flow.shift();s.phase=ph;
+  if(ph==='pick')s.pickTurn=s.commander;
+  if(ph==='cdist')s.cd={i:0,ans:{}};
+  if(ph==='play'){s.trick={leader:s.commander,cards:[]};}
+}
+function askWaiting(s){return H(s).filter(i=>i!==s.commander&&s.sp.ans[i]==null);}
+function askTargets(s){
+  const M=MIS[s.missionNo];
+  if(M.sp==='mute')return H(s);
+  return s.seats.map((x,i)=>i).filter(i=>i!==s.commander);
+}
+function cdWaiting(s){return H(s).filter(i=>i!==s.commander&&s.cd.ans[i]==null);}
+function cdOk(s,target){
+  const cnt=s.seats.map((_,i)=>s.tasks.filter(t=>t.o===i).length);cnt[target]++;
+  const rem=s.tasks.filter(t=>t.o===null).length-1;
+  const mx=Math.max(...cnt);
+  return cnt.reduce((a,c)=>a+Math.max(0,mx-1-c),0)<=rem;
+}
+function playable(s,seat){
+  const hand=handOf(s,seat),tc=s.trick.cards;
+  if(!tc.length)return hand.slice();
+  const ls=suit(tc[0].c),f=hand.filter(c=>suit(c)===ls);
+  return f.length?f:hand.slice();
+}
+function commPos(s,seat,c){
+  if(isJ(s,seat)||suit(c)==='r'||!s.hands[seat].includes(c))return[];
+  const same=s.hands[seat].filter(x=>suit(x)===suit(c)).map(val),v=val(c);
+  if(same.length===1)return['mid'];
+  const r=[];if(v===Math.max(...same))r.push('top');if(v===Math.min(...same))r.push('bot');return r;
+}
+function commBlock(s,seat){ // 통신 불가 사유 (없으면 '')
+  const M=MIS[s.missionNo];
+  if(s.phase!=='play')return '지금은 통신할 수 없어요';
+  if(isJ(s,seat))return 'JARVIS는 통신하지 않아요';
+  if(s.comm[seat])return '이번 시도에서 이미 통신했어요';
+  if(M.sp==='mute'&&s.sp.chosen===seat)return '이번 미션에서는 통신할 수 없어요';
+  if(s.trick.cards.length)return '트릭 진행 중에는 통신할 수 없어요';
+  if(M.dis&&s.trickNo<M.dis)return `${M.dis}번째 트릭 전부터 통신할 수 있어요`;
+  if(!s.hands[seat].some(c=>suit(c)!=='r'))return '통신할 색깔 카드가 없어요';
+  return '';
+}
+function fail(s,reason){s.phase='end';s.result={ok:false,reason};say(s,'❌ 실패: '+reason);}
+function succeed(s){
+  s.phase='end';const att=s.attempt+(s.distressActive?1:0);
+  s.result={ok:true,att};s.log[s.missionNo]={a:att,d:s.distressActive?1:0};
+  say(s,`✅ 미션 ${s.missionNo} 성공! (기록: ${att}회${s.distressActive?' · 조난 신호 포함':''})`);
+}
+function orderCheck(s,S){
+  const done=s.doneCount,end=done+S.length,total=s.tasks.length;
+  for(const t of s.tasks){
+    if(t.done||!t.tk)continue;
+    const inS=S.includes(t);
+    if(/^[1-5]$/.test(t.tk)){
+      const k=+t.tk;
+      if(inS&&(k<=done||k>end))return `${cn(t.c)} 과제는 ${k}번째로 완료해야 했어요`;
+      if(!inS&&k<=end)return `${k}번째 순서가 ${cn(t.c)} 과제보다 다른 과제로 먼저 채워졌어요`;
+    }else if(t.tk==='O'){
+      if(inS&&end<total)return `Ω 과제(${cn(t.c)})는 가장 마지막에 완료해야 했어요`;
+    }else if(inS){
+      const j=+t.tk[1];
+      for(const u of s.tasks){
+        if(u.tk&&u.tk[0]==='a'&&+u.tk[1]<j&&!u.done&&!S.includes(u))
+          return `${TK[t.tk]} 과제(${cn(t.c)})가 ${TK[u.tk]} 과제(${cn(u.c)})보다 먼저 완료됐어요`;
+      }
+    }
+  }
+  return '';
+}
+function resolveTrick(s){
+  const M=MIS[s.missionNo],n=s.seats.length,cards=s.trick.cards;
+  const lead=suit(cards[0].c);let win=cards[0];
+  for(const x of cards){
+    const a=x.c,b=win.c;
+    if((suit(a)==='r'&&suit(b)!=='r')||(suit(a)===suit(b)&&val(a)>val(b)))win=x;
+  }
+  const w=win.s,wc=win.c,cs=cards.map(x=>x.c),last=s.trickNo===s.total;
+  s.tricksWon[w]++;s.wonCards[w].push(...cs);
+  s.lastTrick={cards:cards.slice(),w,no:s.trickNo};
+  s.trick={leader:w,cards:[]};
+  say(s,`${s.lastTrick.no}번째 트릭: ${nm(s,w)} 승리 (${cn(wc)})`);
+  // 과제 확인
+  const S=[];
+  for(const t of s.tasks){
+    if(t.done||!cs.includes(t.c))continue;
+    if(t.o!==w)return fail(s,`${nm(s,t.o)}의 과제 카드(${cn(t.c)})를 ${nm(s,w)}이(가) 가져갔어요`);
+    S.push(t);
+  }
+  if(S.length){
+    const e=orderCheck(s,S);if(e)return fail(s,e);
+    S.forEach(t=>{t.done=true;t.at=s.lastTrick.no;});s.doneCount+=S.length;
+    say(s,`${nm(s,w)} 과제 완료: ${S.map(t=>cn(t.c)).join(', ')}`);
+    if(M.sp==='omega_last'&&S.some(t=>t.tk==='O')&&!last)return fail(s,'Ω 과제를 마지막 트릭이 아닌 곳에서 완료했어요');
+  }
+  // 특수 규칙
+  const sp=M.sp;let spWin=false;
+  const range=()=>{const a=s.tricksWon;return Math.max(...a)-Math.min(...a);};
+  if(sp==='sick'&&w===s.sp.chosen)return fail(s,`아픈 대원 ${nm(s,w)}이(가) 트릭을 이겼어요`);
+  if(sp==='one'&&suit(wc)!=='r'&&val(wc)===1)spWin=true;
+  if(sp==='two1'){
+    if(suit(wc)!=='r'&&val(wc)===1){s.sp.ones++;if(s.sp.ones>=2)spWin=true;}
+  }
+  if(sp==='rockets'||sp==='rockets_order'){
+    for(const c of cs)if(suit(c)==='r'&&c!==wc)return fail(s,`${cn(c)}가 트릭을 이기지 못했어요`);
+    if(suit(wc)==='r'){
+      if(sp==='rockets_order'&&val(wc)!==s.sp.rw.length+1)return fail(s,`로켓 ${s.sp.rw.length+1}보다 ${cn(wc)}가 먼저 트릭을 이겼어요`);
+      s.sp.rw.push(val(wc));if(s.sp.rw.length===4)spWin=true;
+    }
+  }
+  if(sp==='no9'&&suit(wc)!=='r'&&val(wc)===9)return fail(s,`${cn(wc)}로 트릭을 이겼어요`);
+  if((sp==='even'||sp==='cmd_fl')&&range()>=2)return fail(s,'한 대원이 다른 대원보다 트릭을 2개 더 가져갔어요');
+  if(sp==='cmd_fl'){
+    if(s.lastTrick.no===1&&w!==s.commander)return fail(s,'사령관이 첫 번째 트릭을 이기지 못했어요');
+    if(last&&w!==s.commander)return fail(s,'사령관이 마지막 트릭을 이기지 못했어요');
+  }
+  if(sp==='one_trick'&&w===s.sp.chosen){
+    if(suit(wc)==='r')return fail(s,'지목된 대원이 로켓으로 트릭을 이겼어요');
+    if(s.tricksWon[w]>1)return fail(s,'지목된 대원이 트릭을 2개 이겼어요');
+  }
+  if(sp==='first_last'){
+    const edge=s.lastTrick.no===1||last;
+    if(edge&&w!==s.sp.chosen)return fail(s,`지목된 대원이 ${last?'마지막':'첫 번째'} 트릭을 이기지 못했어요`);
+    if(edge&&suit(wc)==='r')return fail(s,'지목된 대원이 로켓으로 트릭을 이겼어요');
+    if(!edge&&w===s.sp.chosen)return fail(s,'지목된 대원이 중간 트릭을 이겼어요');
+  }
+  if(sp==='pink'){
+    if(cs.some(c=>suit(c)==='p')&&w!==s.sp.target)return fail(s,`분홍 카드를 ${nm(s,w)}이(가) 가져갔어요`);
+    if(s.wonCards[s.sp.target].filter(c=>suit(c)==='p').length===9)spWin=true;
+  }
+  if(sp==='ab'){
+    const no=s.lastTrick.no;
+    if(no<=4&&w!==s.sp.A)return fail(s,`${no}번째 트릭을 대원 A가 이기지 못했어요`);
+    if(last&&w!==s.sp.B)return fail(s,'마지막 트릭을 대원 B가 이기지 못했어요');
+    if(no>4&&!last&&(w===s.sp.A||w===s.sp.B))return fail(s,`${no}번째 트릭은 A·B가 아닌 대원이 이겨야 했어요`);
+  }
+  if(spWin)return succeed(s);
+  if(M.t&&s.tasks.every(t=>t.done))return succeed(s);
+  if(last){
+    if(M.t)return fail(s,'모든 과제를 완료하지 못했어요');
+    if(['sick','no9','even','cmd_fl','first_last','ab'].includes(sp))return succeed(s);
+    if(sp==='one_trick')return s.tricksWon[s.sp.chosen]===1?succeed(s):fail(s,'지목된 대원이 트릭을 하나도 이기지 못했어요');
+    return fail(s,'미션 조건을 달성하지 못했어요');
+  }
+  // 다음 트릭 준비
+  s.trickNo++;
+  if(s.jcols)s.jcols.forEach(c=>{if(!c.u&&c.d){c.u=c.d;c.d=null;}});
+  if(sp==='steal'&&s.lastTrick.no===1){
+    const h=H(s),L=h.length,picks=[];
+    for(let k=0;k<L;k++){
+      const me=h[k],right=h[(k-1+L)%L];
+      const cm=s.comm[right]&&!s.comm[right].played?s.comm[right].c:null;
+      const pool=s.hands[right].filter(c=>c!==cm);
+      picks.push({to:me,from:right,c:pool.length?pool[Math.floor(Math.random()*pool.length)]:null});
+    }
+    picks.forEach(p=>{if(p.c)s.hands[p.from].splice(s.hands[p.from].indexOf(p.c),1);});
+    picks.forEach(p=>{if(p.c)s.hands[p.to].push(p.c);});
+    s.hands.forEach(sortHand);
+    say(s,'혼란 발생! 모두 오른쪽 대원에게서 카드 1장을 무작위로 가져왔어요');
+  }
+}
+function doPass(s){
+  const h=H(s),L=h.length,d=s.pass.dir==='left'?1:-1,mv=[];
+  for(let k=0;k<L;k++){const f=h[k],c=s.pass.picks[f];if(c)mv.push({f,t:h[(k+d+L)%L],c});}
+  mv.forEach(m=>s.hands[m.f].splice(s.hands[m.f].indexOf(m.c),1));
+  mv.forEach(m=>s.hands[m.t].push(m.c));
+  s.hands.forEach(sortHand);
+  say(s,`조난 신호: 모두 ${s.pass.dir==='left'?'왼쪽':'오른쪽'}으로 카드 1장씩 전달했어요`);
+  nextPhase(s);
+}
+
+/* act: 상태 s에 액션 a를 적용. 불가능하면 null. a.pid = 행동한 사람 id */
+function act(s,a){
+  const own=i=>ctrl(s,i)===a.pid;
+  const isHost=s.players[0]&&s.players[0].id===a.pid;
+  const M=s.missionNo?MIS[s.missionNo]:{};
+  const n=s.seats?s.seats.length:0;
+  const validSeat=i=>Number.isInteger(i)&&i>=0&&i<n;
+  switch(a.t){
+  case 'join':{
+    if(s.players.some(p=>p.id===a.pid))return s;
+    if(s.phase!=='lobby'||s.players.length>=5)return null;
+    s.players.push({id:a.pid,name:String(a.name||'대원').slice(0,10)});return s;}
+  case 'leave':{
+    if(s.phase!=='lobby')return null;
+    const i=s.players.findIndex(p=>p.id===a.pid);if(i<1)return null;
+    s.players.splice(i,1);return s;}
+  case 'mission':{
+    if(!isHost||!MIS[a.m])return null;
+    if(!['lobby','setup','end'].includes(s.phase))return null;
+    if(s.players.length<2)return null;
+    if(s.phase==='lobby')buildSeats(s);
+    s.missionNo=a.m;s.attempt=1;s.distressActive=false;startAttempt(s);return s;}
+  case 'retry':{
+    if(s.phase!=='end'||s.result.ok)return null;
+    s.attempt++;startAttempt(s);return s;}
+  case 'menu':{
+    if(s.phase!=='end'||!isHost)return null;
+    s.phase='setup';return s;}
+  case 'giveup':{
+    if(['lobby','setup','end'].includes(s.phase)||!isHost)return null;
+    fail(s,'이번 시도를 포기했어요');return s;}
+  case 'ask_ans':{
+    if(s.phase!=='ask'||M.sp==='mute')return null;
+    if(!validSeat(a.seat)||!own(a.seat)||isJ(s,a.seat)||a.seat===s.commander||s.sp.ans[a.seat]!=null)return null;
+    s.sp.ans[a.seat]=a.v;return s;}
+  case 'ask_pick':{
+    if(s.phase!=='ask'||!own(s.commander))return null;
+    if(M.sp!=='mute'&&askWaiting(s).length)return null;
+    if(!askTargets(s).includes(a.target))return null;
+    s.sp.chosen=a.target;
+    const lab={sick:'아픈 대원',one_trick:'선택된 대원',first_last:'선택된 대원',mute:'통신 불가 대원'}[M.sp];
+    say(s,`사령관이 ${lab}으로 ${nm(s,a.target)}을(를) 지목했어요`);nextPhase(s);return s;}
+  case 'ab_pref':{
+    if(s.phase!=='ab'||!validSeat(a.seat)||isJ(s,a.seat)||!own(a.seat)||s.sp.prefs[a.seat]!=null)return null;
+    if(!['A','B','M'].includes(a.v))return null;
+    s.sp.prefs[a.seat]=a.v;return s;}
+  case 'ab_set':{
+    if(s.phase!=='ab'||!own(s.commander))return null;
+    if(H(s).some(i=>s.sp.prefs[i]==null))return null;
+    if(!validSeat(a.A)||!validSeat(a.B)||a.A===a.B)return null;
+    s.sp.A=a.A;s.sp.B=a.B;say(s,`대원 A: ${nm(s,a.A)} · 대원 B: ${nm(s,a.B)}`);nextPhase(s);return s;}
+  case 'adj':{
+    if(s.phase!=='adjust'||!own(s.commander))return null;
+    if(a.skip){nextPhase(s);return s;}
+    const A=s.tasks[a.i],B=s.tasks[a.j];if(!A||!B||a.i===a.j)return null;
+    if(M.sp==='swap'){if(!A.tk||!B.tk)return null;[A.tk,B.tk]=[B.tk,A.tk];say(s,'과제 토큰 2개의 위치를 바꿨어요');}
+    else{if(!A.tk||B.tk)return null;B.tk=A.tk;A.tk=null;say(s,'과제 토큰 1개를 옮겼어요');}
+    nextPhase(s);return s;}
+  case 'pick':{
+    if(s.phase!=='pick'||!own(s.pickTurn))return null;
+    const t=s.tasks[a.i];if(!t||t.o!==null)return null;
+    t.o=s.pickTurn;say(s,`${nm(s,s.pickTurn)}: 과제 ${cn(t.c)}${t.tk?' ['+TK[t.tk]+']':''} 선택`);
+    if(s.tasks.every(x=>x.o!==null))nextPhase(s);else s.pickTurn=(s.pickTurn+1)%n;
+    return s;}
+  case 'cd_ans':{
+    if(s.phase!=='cdist'||!validSeat(a.seat)||isJ(s,a.seat)||a.seat===s.commander||!own(a.seat)||s.cd.ans[a.seat]!=null)return null;
+    s.cd.ans[a.seat]=a.v;return s;}
+  case 'cd_give':{
+    if(s.phase!=='cdist'||!own(s.commander)||cdWaiting(s).length||!validSeat(a.target)||!cdOk(s,a.target))return null;
+    const t=s.tasks[s.cd.i];t.o=a.target;say(s,`사령관이 ${cn(t.c)}${t.tk?' ['+TK[t.tk]+']':''} 과제를 ${nm(s,a.target)}에게 맡겼어요`);
+    s.cd.i++;s.cd.ans={};if(s.cd.i>=s.tasks.length)nextPhase(s);return s;}
+  case 'xfer':{
+    if(s.phase!=='transfer'||!own(s.commander))return null;
+    if(a.skip){nextPhase(s);return s;}
+    const t=s.tasks[a.i];if(!t||!validSeat(a.to)||a.to===t.o)return null;
+    say(s,`5인 규칙: ${nm(s,t.o)} → ${nm(s,a.to)}에게 과제 ${cn(t.c)}를 넘겼어요`);t.o=a.to;nextPhase(s);return s;}
+  case 'dist':{
+    if(s.phase!=='distress'||!own(s.commander))return null;
+    if(a.dir==='none'){nextPhase(s);if(s.phase==='play')say(s,`${nm(s,s.commander)} 사령관이 첫 트릭을 시작해요`);return s;}
+    if(a.dir!=='left'&&a.dir!=='right')return null;
+    if(!s.distressActive){s.distressActive=true;say(s,'🛰️ 조난 신호 발신! (이 미션 기록 +1)');}
+    s.pass={dir:a.dir,picks:{}};
+    H(s).forEach(i=>{if(!s.hands[i].some(c=>suit(c)!=='r'))s.pass.picks[i]=null;});
+    s.phase='pass';
+    if(H(s).every(i=>s.pass.picks[i]!==undefined))doPass(s);
+    return s;}
+  case 'pass':{
+    if(s.phase!=='pass'||!validSeat(a.seat)||isJ(s,a.seat)||!own(a.seat)||s.pass.picks[a.seat]!==undefined)return null;
+    if(!s.hands[a.seat].includes(a.c)||suit(a.c)==='r')return null;
+    s.pass.picks[a.seat]=a.c;
+    if(H(s).every(i=>s.pass.picks[i]!==undefined))doPass(s);
+    return s;}
+  case 'comm':{
+    if(!validSeat(a.seat)||!own(a.seat)||commBlock(s,a.seat))return null;
+    const ps=commPos(s,a.seat,a.c);if(!ps.length)return null;
+    const pos=M.dead?'dead':a.pos;if(!M.dead&&!ps.includes(pos))return null;
+    s.comm[a.seat]={c:a.c,pos,played:false};
+    say(s,`📡 ${nm(s,a.seat)} 통신: ${cn(a.c)}${pos==='dead'?' (통신 불량 — 정보 없음)':pos==='top'?' — 이 색 중 가장 높음':pos==='mid'?' — 이 색의 유일한 카드':' — 이 색 중 가장 낮음'}`);
+    return s;}
+  case 'play':{
+    if(s.phase!=='play')return null;
+    const ts=turn(s);if(!own(ts))return null;
+    if(!playable(s,ts).includes(a.c))return null;
+    if(isJ(s,ts)){const col=s.jcols.find(c=>c.u===a.c);col.u=null;}
+    else s.hands[ts].splice(s.hands[ts].indexOf(a.c),1);
+    if(s.comm[ts]&&s.comm[ts].c===a.c)s.comm[ts].played=true;
+    s.trick.cards.push({s:ts,c:a.c});
+    if(s.trick.cards.length===n)resolveTrick(s);
+    return s;}
+  }
+  return null;
+}
+/* ===================== LOGIC END ===================== */
+
+/* ===================== ONLINE / UI ===================== */
+let db=null,roomRef=null,ST=null,roomCode=null;
+const U={selM:null,commOn:false,commCard:null,sel:[],xfer:null,abA:null,abB:null,passCard:null,modal:null,key:''};
+let myId=(()=>{try{let v=localStorage.getItem('sc_id');if(!v){v='u'+Math.random().toString(36).slice(2,10);localStorage.setItem('sc_id',v);}return v;}catch(e){return 'u'+Math.random().toString(36).slice(2,10);}})();
+let myName=(()=>{try{return localStorage.getItem('sc_name')||'';}catch(e){return '';}})();
+const fbReady=()=>!!(firebaseConfig.apiKey&&firebaseConfig.databaseURL);
+function initFb(){if(db)return true;if(!fbReady())return false;try{firebase.initializeApp(firebaseConfig);db=firebase.database();return true;}catch(e){console.error(e);return false;}}
+const esc=t=>String(t).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function toast(m){const d=document.createElement('div');d.className='toast';d.textContent=m;document.body.appendChild(d);setTimeout(()=>d.remove(),2200);}
+
+function listen(code){
+  roomCode=code;roomRef=db.ref('spacecrew/rooms/'+code);
+  roomRef.child('state').on('value',snap=>{
+    const v=snap.val();
+    if(!v){ST=null;toast('방이 없어졌어요');leaveLocal();return;}
+    ST=JSON.parse(v);render();
+  });
+  try{localStorage.setItem('sc_room',code);}catch(e){}
+}
+function leaveLocal(){if(roomRef)roomRef.child('state').off();roomRef=null;ST=null;roomCode=null;try{localStorage.removeItem('sc_room');}catch(e){}render();}
+function dispatch(a,cb){
+  if(!roomRef)return;
+  a.pid=myId;
+  roomRef.child('state').transaction(cur=>{
+    if(cur===null)return null;
+    const st=JSON.parse(cur);const ns=act(st,a);
+    if(!ns)return;ns.v=(st.v||0)+1;return JSON.stringify(ns);
+  },(err,ok)=>{if(err)toast('통신 오류: '+err.message);else if(!ok)toast('지금은 할 수 없는 행동이에요');if(cb)cb(ok);});
+}
+function createRoom(name){
+  if(!initFb())return toast('Firebase 설정을 먼저 넣어 주세요');
+  const code=Array.from({length:4},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random()*24)]).join('');
+  const r=db.ref('spacecrew/rooms/'+code);
+  r.set({state:JSON.stringify(newRoom({id:myId,name})),created:Date.now()}).then(()=>listen(code)).catch(e=>toast('방 만들기 실패: '+e.message));
+}
+function joinRoom(code,name){
+  if(!initFb())return toast('Firebase 설정을 먼저 넣어 주세요');
+  code=code.toUpperCase().trim();
+  db.ref('spacecrew/rooms/'+code+'/state').once('value').then(snap=>{
+    if(!snap.val())return toast('그런 방이 없어요');
+    const st=JSON.parse(snap.val());
+    if(!st.players.some(p=>p.id===myId)&&st.phase!=='lobby')return toast('이미 게임이 시작된 방이에요');
+    listen(code);dispatch({t:'join',name});
+  });
+}
+
+/* ---------- 그래픽 ---------- */
+const PC={p:['#ffc2dd','#b3165d'],b:['#bfe0ff','#154d9c'],g:['#c7f5cf','#146b33'],y:['#fff2b0','#b8860b']};
+function planetSVG(s,v){
+  const [l,d]=PC[s];const id='g'+s+v+Math.random().toString(36).slice(2,6);
+  return `<svg viewBox="0 0 60 60"><defs><radialGradient id="${id}" cx="35%" cy="30%"><stop offset="0" stop-color="${l}"/><stop offset="1" stop-color="${d}"/></radialGradient></defs>
+  <circle cx="30" cy="30" r="17" fill="url(#${id})"/>
+  <ellipse cx="30" cy="31" rx="28" ry="7" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="2.2" transform="rotate(-18 30 31)"/>
+  <circle cx="24" cy="24" r="3" fill="#fff" fill-opacity=".35"/><circle cx="36" cy="36" r="2" fill="#000" fill-opacity=".15"/></svg>`;
+}
+const ROCKET=`<svg viewBox="0 0 60 60"><path d="M30 6c8 8 11 18 11 28H19c0-10 3-20 11-28z" fill="#e9e9f2"/><circle cx="30" cy="22" r="4.5" fill="#4aa3ff" stroke="#23242e" stroke-width="1.5"/>
+<path d="M19 30l-7 10 8-2zM41 30l7 10-8-2z" fill="#e2463b"/><path d="M24 34h12l-2 5h-8z" fill="#9ca0b4"/><path d="M26 39c1 7 3 11 4 13 1-2 3-6 4-13z" fill="#ffae3b"/><path d="M28 39c.6 4 1.4 6 2 8 .6-2 1.4-4 2-8z" fill="#fff3a0"/></svg>`;
+function cardH(c,o={}){
+  if(o.back)return `<div class="card back ${o.sm?'sm':''} ${o.cls||''}"><div class="face"></div></div>`;
+  const s=suit(c),v=val(c);
+  return `<div class="card s-${s} ${o.sm?'sm':''} ${o.cls||''}" ${o.data||''} title="${cn(c)}"><div class="face">
+  <span class="n tl">${v}</span><span class="n br">${v}</span><span class="sym">${SYM[s]}</span>
+  <div class="art">${s==='r'?ROCKET:planetSVG(s,v)}</div></div>${o.extra||''}</div>`;
+}
+function taskH(t,o={}){
+  const s=suit(t.c);
+  if(o.down)return `<div class="task facedown ${o.lg?'lg':''}"><div class="tf">?</div>${t.tk?`<span class="tok">${TK[t.tk]}</span>`:''}</div>`;
+  return `<div class="task s-${s} ${t.done?'done':''} ${o.lg?'lg':''} ${o.cls||''}" ${o.data||''} title="과제: ${cn(t.c)}${t.tk?' · '+TKNAME[t.tk]:''}"><div class="tf">${val(t.c)}</div>${t.tk?`<span class="tok">${TK[t.tk]}</span>`:''}</div>`;
+}
+function commH(s,i){
+  const cm=s.comm&&s.comm[i];
+  if(!cm)return '';
+  if(cm.played){
+    const pt={top:'최고',mid:'유일',bot:'최저',dead:'?'}[cm.pos];
+    return `<div class="comm"><span class="rtok r">📡</span><span class="commtxt">통신 완료<br>${cn(cm.c)} · ${pt}</span></div>`;
+  }
+  if(cm.pos==='dead')return `<div class="comm">${cardH(cm.c,{sm:1})}<span class="rtok r">📡</span></div>`;
+  return `<div class="comm">${cardH(cm.c,{sm:1,extra:`<span class="rtok g ${cm.pos}">📡</span>`})}</div>`;
+}
+
+/* ---------- 화면 ---------- */
+function mySeat(s){return s.seats?s.seats.findIndex(x=>x.pid===myId):-1;}
+function canCtrl(s,i){return ctrl(s,i)===myId;}
+function render(){
+  const app=document.getElementById('app');
+  if(!ST){app.innerHTML=homeH();return;}
+  const key=[ST.phase,ST.attempt,ST.missionNo,ST.trickNo,ST.trick&&ST.trick.cards.length,ST.cd&&ST.cd.i].join('|');
+  if(key!==U.key){U.key=key;U.commOn=false;U.commCard=null;U.sel=[];U.xfer=null;U.passCard=null;}
+  if(ST.phase==='lobby')app.innerHTML=lobbyH(ST);
+  else if(ST.phase==='setup')app.innerHTML=setupH(ST);
+  else app.innerHTML=gameH(ST);
+  app.insertAdjacentHTML('beforeend',modalH());
+  const lg=document.querySelector('.log');if(lg)lg.scrollTop=lg.scrollHeight;
+}
+function homeH(){
+  let saved='';try{saved=localStorage.getItem('sc_room')||'';}catch(e){}
+  return `<div class="wrap"><h1 class="logo">스페이스 크루</h1><div class="sub">협력 트릭테이킹 · 3~5인 (2인은 JARVIS와 함께) · 온라인</div>
+  <div class="home">
+   ${fbReady()?'':`<div class="panel" style="border-color:#c0457a">⚠️ 아직 Firebase 설정이 비어 있어요. HTML 파일 위쪽의 <b>firebaseConfig</b>에 본인 프로젝트 값을 넣어 주세요.</div>`}
+   <div class="panel"><label>내 이름</label><input class="inp" id="nm" maxlength="10" placeholder="이름" value="${esc(myName)}"></div>
+   <div class="panel"><div class="row"><button class="btn pri" style="flex:1" data-a="create">🚀 방 만들기</button></div></div>
+   <div class="panel"><label>방 코드</label><div class="row"><input class="inp" id="code" maxlength="4" placeholder="ABCD" style="flex:1;text-transform:uppercase;letter-spacing:4px" value="${esc(saved)}"><button class="btn" data-a="join">참가</button></div></div>
+   <button class="btn ghost" data-a="rules">📖 게임 규칙</button>
+  </div><div class="foot">made by m00n</div></div>`;
+}
+function lobbyH(s){
+  const host=s.players[0].id===myId;
+  return `<div class="wrap"><h1 class="logo" style="font-size:44px">스페이스 크루</h1>
+  <div class="home" style="max-width:560px"><div class="panel"><div class="muted" style="text-align:center">방 코드</div><div class="code">${roomCode}</div>
+  <div class="muted" style="text-align:center;font-size:13px">친구들에게 이 코드를 알려 주세요 (2~5명)</div></div>
+  <div class="panel"><b>승무원 (${s.players.length}/5)</b><div class="players">${s.players.map((p,i)=>`<span class="pchip">${i===0?'👑 ':''}${esc(p.name)}${p.id===myId?' (나)':''}</span>`).join('')}</div>
+  <div class="muted" style="font-size:13px">자리 순서 = 참가 순서(시계 방향)입니다. ${s.players.length===2?'2명이면 JARVIS가 3번째 대원으로 함께해요.':''}</div></div>
+  ${host?`<div class="panel"><b>미션 선택</b>${missionPicker(s)}</div>`:`<div class="panel muted">방장이 미션을 고르면 시작해요…</div>`}
+  <div class="row"><button class="btn ghost" data-a="rules">📖 규칙</button><button class="btn ghost" data-a="quit">나가기</button></div></div><div class="foot">made by m00n</div></div>`;
+}
+function missionPicker(s){
+  const m=U.selM||s.missionNo||1,n=s.seats?s.seats.length:(s.players.length===2?3:s.players.length);
+  return `<div class="mgrid" style="margin:10px 0">${Array.from({length:50},(_,k)=>{const i=k+1,L=s.log[i],M=MIS[i];
+   return `<button class="mbtn ${L?'done':''} ${M.g?'gold':''} ${i===m?'sel':''}" data-a="selm" data-m="${i}">${i}<small>${L?'✔ '+L.a+'회':M.t?'과제 '+M.t:'특수'}</small></button>`;}).join('')}</div>
+  <div class="panel" style="background:#0c1238"><b>미션 ${m}</b>${missionLines(m,n).map(l=>`<div style="font-size:14px;margin-top:4px">${l}</div>`).join('')}
+  <div class="row" style="margin-top:10px"><button class="btn gold" data-a="startm" data-m="${m}" ${s.players.length<2?'disabled':''}>미션 ${m} 시작</button>${s.players.length<2?'<span class="muted">2명 이상 필요</span>':''}</div></div>`;
+}
+function setupH(s){
+  const host=s.players[0].id===myId;
+  const done=Object.keys(s.log).length;
+  return `<div class="wrap"><div class="top"><span class="ttl">스페이스 크루</span><span class="mbadge">방 ${roomCode}</span><span class="spacer"></span><button class="btn ghost sm" data-a="rules">📖 규칙</button><button class="btn ghost sm" data-a="quit">나가기</button></div>
+  <div class="panel"><b>🗒️ 항해 일지</b> <span class="muted">완료 ${done}/50 · 총 시도 ${Object.values(s.log).reduce((a,l)=>a+l.a,0)}회</span>
+  ${host?missionPicker(s):`<div class="muted" style="margin-top:8px">방장이 다음 미션을 고르고 있어요…</div>`}</div><div class="foot">made by m00n</div></div>`;
+}
+function tagsFor(s,i){
+  const M=MIS[s.missionNo],t=[];
+  if(i===s.commander)t.push('<span class="cmd">👑 사령관</span>');
+  if(isJ(s,i))t.push('<span class="tag">🤖 사령관이 조종</span>');
+  const ch=s.sp&&s.sp.chosen;
+  if(ch===i){
+    if(M.sp==='sick')t.push('<span class="tag warn">🤒 아픔: 트릭 0개</span>');
+    if(M.sp==='mute')t.push('<span class="tag warn">🔇 통신 불가</span>');
+    if(M.sp==='one_trick')t.push('<span class="tag warn">🎯 트릭 딱 1개(로켓×)</span>');
+    if(M.sp==='first_last')t.push('<span class="tag warn">🎯 첫·마지막 트릭만</span>');
+  }
+  if(M.sp==='pink'){if(s.sp.pinkOwner===i)t.push('<span class="tag">분홍 9 보유</span>');if(s.sp.target===i)t.push('<span class="tag warn">🎯 분홍 전부</span>');}
+  if(M.sp==='ab'){if(s.sp.A===i)t.push('<span class="tag warn">A: 1~4번째 트릭</span>');if(s.sp.B===i)t.push('<span class="tag warn">B: 마지막 트릭</span>');}
+  return t.join('');
+}
+function seatH(s,i,V){
+  const isT=s.phase==='play'&&turn(s)===i;
+  const cnt=isJ(s,i)?s.jcols.reduce((a,c)=>a+(c.u?1:0)+(c.d?1:0),0):s.hands[i].length;
+  const my=s.tasks.filter(t=>t.o===i);
+  let jarv='';
+  if(isJ(s,i)){
+    const clickable=s.phase==='play'&&isT&&canCtrl(s,i);const pl=clickable?playable(s,i):[];
+    jarv=`<div class="jcols" style="margin-top:6px">${s.jcols.map(c=>`<div class="jcol">${c.d?cardH('',{back:1,sm:1,cls:'down'}):''}${c.u?cardH(c.u,{sm:1,cls:'up '+(clickable?(pl.includes(c.u)?'playable':'dim'):''),data:clickable&&pl.includes(c.u)?`data-a="play" data-c="${c.u}"`:''}):''}</div>`).join('')}</div>`;
+  }
+  return `<div class="seat ${isT?'turn':''} ${i===V?'me':''}">
+   <div class="nm">${esc(nm(s,i))}${i===V?' <span class="muted" style="font-weight:400">(나)</span>':''} ${tagsFor(s,i)}</div>
+   <div class="info">🂠 ${cnt}장 · 🏆 트릭 ${s.tricksWon[i]}${isT?' · <b style="color:#cfe0ff">▶ 차례</b>':''}</div>
+   <div class="area"><div class="tasks">${my.map(t=>taskH(t)).join('')}</div>${commH(s,i)}</div>${jarv}</div>`;
+}
+function gameH(s){
+  const V=mySeat(s),M=MIS[s.missionNo],host=s.players[0].id===myId;
+  const lines=missionLines(s.missionNo,s.seats.length);
+  return `<div class="wrap">
+  <div class="top"><span class="ttl">스페이스 크루</span><span class="mbadge">미션 ${s.missionNo}</span><span class="mbadge" style="background:#1c2a55">${s.attempt}번째 시도</span>
+   <span class="mbadge" style="background:#1c2a55">트릭 ${Math.min(s.trickNo,s.total)}/${s.total}</span><span class="spacer"></span>
+   <button class="btn ghost sm" data-a="rules">📖 규칙</button>${host&&s.phase!=='end'?'<button class="btn ghost sm" data-a="giveup">🏳️ 포기</button>':''}<button class="btn ghost sm" data-a="quit">나가기</button></div>
+  <div class="panel mission"><div class="dtoken ${s.distressActive?'on':''}" title="조난 신호 토큰">🛰️</div><div class="rules">${lines.map(l=>`<div>${l}</div>`).join('')}</div></div>
+  <div class="seats">${s.seats.map((_,i)=>seatH(s,i,V)).join('')}</div>
+  <div class="center"><div class="panel trickbox">${trickH(s)}</div><div class="panel act">${actH(s,V)}</div></div>
+  ${V>=0?handH(s,V):''}
+  <div class="panel log" style="margin-top:10px">${s.msgs.slice(-30).map(m=>`<div>${esc(m)}</div>`).join('')}</div>
+  <div class="foot">방 ${roomCode} · made by m00n</div></div>`;
+}
+function trickH(s){
+  if(s.phase==='pick'||s.phase==='adjust'){
+    const can=s.phase==='pick'&&canCtrl(s,s.pickTurn);
+    const adj=s.phase==='adjust'&&canCtrl(s,s.commander);
+    return `<h3>📋 과제 카드</h3><div class="pool">${s.tasks.map((t,i)=>t.o!==null?'':taskH(t,{lg:1,cls:(can||adj?'click ':'')+(U.sel.includes(i)?'sel':''),data:can?`data-a="pick" data-i="${i}"`:adj?`data-a="adjsel" data-i="${i}"`:''})).join('')}</div>`;
+  }
+  if(s.phase==='cdist'){
+    return `<h3>📋 과제 카드 (사령관 배분)</h3><div class="pool">${s.tasks.map((t,i)=>t.o!==null?'':i===s.cd.i?taskH(t,{lg:1,cls:'sel'}):taskH(t,{lg:1,down:1})).join('')}</div>`;
+  }
+  const tc=s.trick?s.trick.cards:[];
+  if(tc.length||!s.lastTrick||s.phase!=='play'&&s.phase!=='end'){
+    return `<h3>🌌 ${s.phase==='play'?s.trickNo+'번째 트릭':'트릭'}</h3><div class="trick">${tc.map(x=>`<div class="tc">${cardH(x.c)}<span>${esc(nm(s,x.s))}</span></div>`).join('')||'<span class="muted">아직 낸 카드가 없어요</span>'}</div>`;
+  }
+  const L=s.lastTrick;
+  const wcard=L.cards.find(x=>x.s===L.w).c;
+  return `<h3>🌌 ${L.no}번째 트릭 결과 — <span style="color:var(--gold)">${esc(nm(s,L.w))} 승리</span></h3><div class="trick">${L.cards.map(x=>`<div class="tc">${cardH(x.c,{cls:x.c===wcard?'win':''})}<span>${esc(nm(s,x.s))}</span></div>`).join('')}</div>`;
+}
+function btn(label,a,extra='',cls=''){return `<button class="btn sm ${cls}" data-a="${a}" ${extra}>${label}</button>`;}
+function actH(s,V){
+  const M=MIS[s.missionNo],cmdName=esc(nm(s,s.commander)),isCmd=canCtrl(s,s.commander);
+  switch(s.phase){
+  case 'ask':{
+    if(M.sp==='mute'){
+      return `<h3>👑 사령관의 지목</h3><div class="q">사령관 ${cmdName}이(가) 이번 미션에서 통신할 수 없는 대원 1명을 지목해요.</div>
+      ${isCmd?`<div class="row">${askTargets(s).map(i=>btn(esc(nm(s,i)),'askpick',`data-t="${i}"`)).join('')}</div>`:'<div class="muted">사령관의 결정을 기다리는 중…</div>'}`;
+    }
+    const sick=M.sp==='sick',opts=sick?['좋음','나쁨']:['예','아니오'];
+    const w=askWaiting(s);
+    const q=sick?'몸 상태는 어떤가요?':'이 임무를 맡을 준비가 됐나요?';
+    let h=`<h3>👑 사령관의 결정</h3><div class="q">사령관이 묻습니다: <b>“${q}”</b><br><span class="muted" style="font-size:13px">카드를 보고 ${opts.join('/')}로만 답하세요.</span></div>
+    <div class="ans">${H(s).filter(i=>i!==s.commander).map(i=>`${esc(nm(s,i))}: <b>${s.sp.ans[i]!=null?esc(s.sp.ans[i]):'…'}</b>`).join(' · ')}</div>`;
+    if(V>=0&&w.includes(V))h+=`<div class="row">${opts.map(o=>btn(o,'askans',`data-v="${o}"`,'pri')).join('')}</div>`;
+    else if(!w.length){
+      h+=isCmd?`<div class="q">${sick?'아픈 대원':'임무를 맡을 대원'}을 지목하세요 (자신 제외)</div><div class="row">${askTargets(s).map(i=>btn(esc(nm(s,i)),'askpick',`data-t="${i}"`,'gold')).join('')}</div>`:'<div class="muted">사령관이 지목하는 중…</div>';
+    }else h+='<div class="muted">대답을 기다리는 중…</div>';
+    return h;}
+  case 'ab':{
+    const lab={A:'A (1~4번째 트릭)',B:'B (마지막 트릭)',M:'중간 트릭'};
+    const w=H(s).filter(i=>s.sp.prefs[i]==null);
+    let h=`<h3>🧭 역할 정하기</h3><div class="q">각자 원하는 역할을 밝혀요 (카드 정보는 말하지 않기).</div>
+    <div class="ans">${H(s).map(i=>`${esc(nm(s,i))}: <b>${s.sp.prefs[i]?lab[s.sp.prefs[i]]:'…'}</b>`).join('<br>')}</div>`;
+    if(V>=0&&w.includes(V))h+=`<div class="row">${['A','B','M'].map(k=>btn(lab[k],'abpref',`data-v="${k}"`,'pri')).join('')}</div>`;
+    else if(!w.length){
+      if(isCmd){
+        const all=s.seats.map((_,i)=>i);
+        h+=`<div class="q">다 함께 상의한 결과를 사령관이 입력해요.</div>
+        <div style="margin:4px 0">A: ${all.map(i=>btn(esc(nm(s,i)),'abA',`data-t="${i}"`,U.abA===i?'gold':'')).join(' ')}</div>
+        <div style="margin:4px 0">B: ${all.map(i=>btn(esc(nm(s,i)),'abB',`data-t="${i}"`,U.abB===i?'gold':'')).join(' ')}</div>
+        ${btn('확정','abset',(U.abA!=null&&U.abB!=null&&U.abA!==U.abB)?'':'disabled','pri')}`;
+      }else h+='<div class="muted">사령관이 입력하는 중…</div>';
+    }else h+='<div class="muted">다른 대원을 기다리는 중…</div>';
+    return h;}
+  case 'adjust':{
+    const swap=M.sp==='swap';
+    return `<h3>🔧 과제 토큰 조정</h3><div class="q">${swap?'토큰 2개의 위치를 바꿀 수 있어요.':'토큰 1개를 토큰 없는 과제 카드로 옮길 수 있어요.'} 모두 상의한 뒤 사령관이 실행해요.</div>
+    ${isCmd?`<div class="muted" style="font-size:13px">${swap?'토큰이 있는 과제 2장을 누르세요.':'① 옮길 토큰이 있는 과제 → ② 토큰 없는 과제 순서로 누르세요.'}</div>
+    <div class="row" style="margin-top:8px">${btn(swap?'바꾸기':'옮기기','adjdo',U.sel.length===2?'':'disabled','pri')}${btn('그대로 진행','adjskip')}</div>`:'<div class="muted">사령관이 조정하는 중…</div>'}`;}
+  case 'pick':{
+    const who=s.pickTurn,mine=canCtrl(s,who);
+    return `<h3>📋 과제 고르기</h3><div class="q">사령관부터 시계 방향으로 한 장씩 가져가요. 지금은 <b>${esc(nm(s,who))}</b>${isJ(s,who)?' (사령관이 대신 선택)':''} 차례.</div>
+    ${mine?'<div class="muted">위의 과제 카드를 눌러 가져가세요.</div>':'<div class="muted">기다리는 중…</div>'}`;}
+  case 'cdist':{
+    const t=s.tasks[s.cd.i],w=cdWaiting(s);
+    let h=`<h3>👑 사령관의 배분 (${s.cd.i+1}/${s.tasks.length})</h3><div class="row" style="gap:12px"><div class="q">공개된 과제: <b>${cn(t.c)}</b>${t.tk?` · 토큰 ${TK[t.tk]}`:''}<br>이 과제를 맡고 싶나요?</div></div>
+    <div class="ans">${H(s).filter(i=>i!==s.commander).map(i=>`${esc(nm(s,i))}: <b>${s.cd.ans[i]!=null?esc(s.cd.ans[i]):'…'}</b>`).join(' · ')}</div>`;
+    if(V>=0&&w.includes(V))h+=`<div class="row">${btn('예','cdans','data-v="예"','pri')}${btn('아니오','cdans','data-v="아니오"')}</div>`;
+    else if(!w.length){
+      h+=isCmd?`<div class="q">누구에게 맡길까요? (자신 포함, 과제 수 차이 최대 1)</div><div class="row">${s.seats.map((_,i)=>btn(esc(nm(s,i)),'cdgive',`data-t="${i}" ${cdOk(s,i)?'':'disabled'}`,'gold')).join('')}</div>`:'<div class="muted">사령관이 배정하는 중…</div>';
+    }else h+='<div class="muted">대답을 기다리는 중…</div>';
+    return h;}
+  case 'transfer':{
+    const owned=s.tasks.map((t,i)=>({t,i}));
+    return `<h3>🌟 5인 추가 규칙</h3><div class="q">대원 1명이 자기 과제 1장을 다른 대원에게 넘길 수 있어요. 카드 정보는 밝히지 말고 상의한 뒤 사령관이 실행해요.</div>
+    ${isCmd?`<div class="pool" style="justify-content:flex-start">${owned.map(({t,i})=>`<div class="tc">${taskH(t,{cls:'click '+(U.xfer===i?'sel':''),data:`data-a="xsel" data-i="${i}"`})}<span>${esc(nm(s,t.o))}</span></div>`).join('')}</div>
+    ${U.xfer!=null?`<div class="row">→ ${s.seats.map((_,i)=>i===s.tasks[U.xfer].o?'':btn(esc(nm(s,i)),'xto',`data-t="${i}"`,'gold')).join('')}</div>`:''}
+    <div class="row" style="margin-top:8px">${btn('넘기지 않고 진행','xskip')}</div>`:'<div class="muted">사령관이 결정하는 중…</div>'}`;}
+  case 'distress':{
+    return `<h3>🛰️ 조난 신호</h3><div class="q">${s.distressActive?'조난 신호가 이미 켜져 있어요. 이번 시도에서도 카드를 1장씩 넘길 수 있어요.':'조난 신호를 보내면 모두 같은 방향으로 카드 1장(로켓 제외)을 넘겨요. 이 미션 기록에 +1이 돼요.'}<br><span class="muted" style="font-size:13px">다 함께 정하고 사령관이 실행해요.</span></div>
+    ${isCmd?`<div class="row">${btn('← 왼쪽으로 넘기기','dist','data-d="left"','gold')}${btn('오른쪽으로 넘기기 →','dist','data-d="right"','gold')}${btn(s.distressActive?'이번엔 안 넘기기':'조난 신호 없이 시작','dist','data-d="none"','pri')}</div>`:'<div class="muted">사령관의 결정을 기다리는 중…</div>'}`;}
+  case 'pass':{
+    const w=H(s).filter(i=>s.pass.picks[i]===undefined);
+    let h=`<h3>🛰️ 카드 넘기기 (${s.pass.dir==='left'?'← 왼쪽':'오른쪽 →'})</h3><div class="ans">${H(s).map(i=>`${esc(nm(s,i))}: ${s.pass.picks[i]===undefined?'…':'✔'}`).join(' · ')}</div>`;
+    if(V>=0&&w.includes(V))h+=`<div class="q">넘길 카드를 손패에서 고르세요 (로켓 제외).</div>${btn('이 카드 넘기기','passdo',U.passCard?'':'disabled','pri')}`;
+    else h+='<div class="muted">다른 대원을 기다리는 중…</div>';
+    return h;}
+  case 'play':{
+    const ts=turn(s),mine=canCtrl(s,ts);
+    let h=`<h3>🃏 ${s.trickNo}번째 트릭</h3><div class="q">${s.trick.cards.length?'':'리드: '}<b>${esc(nm(s,ts))}</b> 차례${isJ(s,ts)?' (사령관이 JARVIS의 앞면 카드를 대신 냄)':''}</div>`;
+    if(mine)h+=`<div class="muted" style="font-size:13px">${isJ(s,ts)?'JARVIS의 앞면 카드 중 하나를 누르세요.':'손패에서 낼 카드를 누르세요.'} 같은 색이 있으면 반드시 따라내야 해요.</div>`;
+    if(V>=0&&!isJ(s,V)){
+      const b=commBlock(s,V);
+      if(!b){
+        h+=`<div style="margin-top:10px">${U.commOn?`<div class="q">📡 통신할 색깔 카드를 손패에서 고르세요.</div>`:''}${btn(U.commOn?'통신 취소':'📡 통신하기','commtog','',U.commOn?'':'grn')}</div>`;
+        if(U.commOn&&U.commCard){
+          const ps=commPos(s,V,U.commCard);
+          if(M.dead)h+=`<div class="row" style="margin-top:6px">${btn(`${cn(U.commCard)} 공개 (데드존)`,'commdo','data-p="dead"','pri')}</div>`;
+          else h+=`<div class="row" style="margin-top:6px">${ps.map(p=>btn({top:'⬆ 가장 높음',mid:'● 유일함',bot:'⬇ 가장 낮음'}[p],'commdo',`data-p="${p}"`,'pri')).join('')}</div>`;
+        }
+      }else if(!s.comm[V])h+=`<div class="muted" style="font-size:12px;margin-top:8px">📡 ${b}</div>`;
+    }
+    return h;}
+  case 'end':{
+    const r=s.result,host=s.players[0].id===myId;
+    return `<div class="result ${r.ok?'ok':'bad'}"><div class="big">${r.ok?'미션 성공!':'미션 실패'}</div>
+    <div>${r.ok?`기록: ${r.att}회${s.distressActive?' (조난 신호 +1 포함)':''}`:esc(r.reason)}</div>
+    <div class="row" style="justify-content:center;margin-top:12px">
+    ${r.ok?(host&&s.missionNo<50?btn(`미션 ${s.missionNo+1} 도전 ▶`,'startm',`data-m="${s.missionNo+1}"`,'gold'):''):btn('🔁 다시 도전','retry','','gold')}
+    ${host?btn('🗒️ 미션 선택','menu'):''}</div>${r.ok&&s.missionNo===50?'<div style="margin-top:10px">🌍 모든 미션 완료! 무사히 지구로 귀환했어요.</div>':''}</div>`;}
+  }
+  return '';
+}
+function handH(s,V){
+  const hand=s.hands[V];const ts=s.phase==='play'?turn(s):-1;
+  const myTurn=ts===V;const pl=myTurn?playable(s,V):[];
+  const commCard=s.comm[V]&&!s.comm[V].played?s.comm[V].c:null;
+  return `<div class="panel hand"><b>🖐️ 내 손패</b> <span class="muted" style="font-size:13px">${hand.length}장${myTurn&&!U.commOn?' · 낼 수 있는 카드가 밝게 표시돼요':''}</span>
+  <div class="handcards">${hand.map(c=>{
+    let cls='',data='';
+    if(U.commOn){const ok=commPos(s,V,c).length>0;cls=ok?'playable':'dim';if(ok)data=`data-a="commsel" data-c="${c}"`;if(U.commCard===c)cls+=' sel';}
+    else if(s.phase==='pass'&&s.pass.picks[V]===undefined){const ok=suit(c)!=='r';cls=ok?'playable':'dim';if(ok)data=`data-a="passsel" data-c="${c}"`;if(U.passCard===c)cls+=' sel';}
+    else if(myTurn){const ok=pl.includes(c);cls=ok?'playable':'dim';if(ok)data=`data-a="play" data-c="${c}"`;}
+    const ex=c===commCard?`<span class="rtok ${s.comm[V].pos==='dead'?'r':'g'}" style="position:absolute;bottom:-8px;left:50%;transform:translateX(-50%)">📡</span>`:'';
+    return cardH(c,{cls,data,extra:ex});}).join('')}</div></div>`;
+}
+function modalH(){
+  if(U.modal!=='rules')return '';
+  return `<div class="modal" data-a="close"><div class="box" onclick="event.stopPropagation()"><h2>📖 스페이스 크루 규칙</h2>
+  <h4>구성</h4><p>카드 40장: 4색(분홍·파랑·초록·노랑) 1~9 + 로켓 1~4. 모두 협력해 미션을 달성하면 함께 이기고, 한 번이라도 조건을 어기면 즉시 실패해요. 미션 1~50을 순서대로 진행하며 시도 횟수를 기록해요.</p>
+  <h4>준비</h4><p>카드를 모두 똑같이 나눠요(3인이면 1명이 1장 더 받고, 그 카드는 끝까지 남아요). 로켓 4를 가진 사람이 <b>사령관</b>이 되어 과제 선택과 첫 트릭을 시작해요.</p>
+  <h4>과제</h4><p>과제 카드를 미션에 적힌 수만큼 공개하고, 사령관부터 시계 방향으로 한 장씩 가져가요. 과제 카드와 같은 카드가 들어 있는 트릭을 <b>그 과제의 주인</b>이 이겨야 해요. 다른 사람이 가져가면 실패!</p>
+  <h4>과제 토큰</h4><p>1~5: 전체 과제 중 그 순서로 완료. › ›› ››› ››››: 화살표끼리의 상대 순서. Ω: 모든 과제 중 마지막. 같은 트릭에서 연속된 토큰의 과제를 함께 완료하면 성공으로 인정돼요.</p>
+  <h4>트릭</h4><p>선이 낸 색을 반드시 따라내야 해요(없으면 아무거나). 로켓은 으뜸패라 항상 이기고, 로켓끼리는 높은 숫자가 이겨요. 트릭을 이긴 사람이 다음 트릭을 시작해요. 일부러 이길 필요는 없어요.</p>
+  <h4>통신</h4><p>자기 카드에 대해서는 말할 수 없어요. 대신 미션마다 한 번, <b>트릭이 시작되기 전</b>에만 색깔 카드 1장을 공개하며 토큰으로 알려요: 위=그 색 중 가장 높음, 가운데=그 색의 유일한 카드, 아래=그 색 중 가장 낮음. 로켓은 통신할 수 없어요. 공개한 카드는 나중에 평소처럼 내요.</p>
+  <h4>조난 신호</h4><p>과제 배분 후, 통신 전에 쓸 수 있어요. 모두 같은 방향으로 카드 1장(로켓 제외)을 넘겨요. 켜면 그 미션 기록이 +1 되고, 같은 미션의 이후 시도에서도 계속 쓸 수 있어요.</p>
+  <h4>특수 기호</h4><p>📵 데드존: 통신 시 위치 없이 카드만 공개. 📡 통신 방해: 적힌 트릭부터 통신 가능. 👑 사령관의 결정/배분: 대원들은 정해진 대답만 할 수 있고 사령관이 정해요.</p>
+  <h4>5인</h4><p>★ 표시 미션(25번~)에서는 과제 배분 후 첫 트릭 전에 한 명이 자기 과제 1장을 다른 대원에게 넘길 수 있어요.</p>
+  <h4>2인 (JARVIS)</h4><p>로켓 4를 빼고 7장을 뒷면으로, 그 위에 7장을 앞면으로 깔아 JARVIS를 만들어요. 나머지(로켓 4 포함)를 13장씩 나눠요. 사령관이 JARVIS의 과제를 고르고 앞면 카드 중에서 대신 내요. 앞면 카드를 내면 트릭이 끝난 뒤 아래 카드가 뒤집혀요. JARVIS는 통신하지 않아요.</p>
+  <p class="muted" style="font-size:12px">※ 웹앱 처리: 2인 조난 신호·미션 12의 카드 가져오기는 두 사람끼리만 주고받아요. 미션 12에서 통신으로 공개해 둔 카드는 가져갈 수 없어요.</p>
+  <div style="text-align:right"><button class="btn pri" data-a="close">닫기</button></div></div></div>`;
+}
+
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-a]');if(!el)return;
+  const d=el.dataset,s=ST,V=s?mySeat(s):-1;
+  const nameIn=()=>{const v=(document.getElementById('nm')||{}).value;const n=(v||'').trim();if(!n){toast('이름을 입력해 주세요');return null;}myName=n;try{localStorage.setItem('sc_name',n);}catch(e){}return n;};
+  switch(d.a){
+   case 'create':{const n=nameIn();if(n)createRoom(n);break;}
+   case 'join':{const n=nameIn();const c=(document.getElementById('code').value||'').trim();if(!n)break;if(c.length!==4)return toast('방 코드 4자리를 입력해 주세요');joinRoom(c,n);break;}
+   case 'quit':if(confirm('방에서 나갈까요?')){if(s&&s.phase==='lobby')dispatch({t:'leave'});leaveLocal();}break;
+   case 'rules':U.modal='rules';render();break;
+   case 'close':U.modal=null;render();break;
+   case 'selm':U.selM=+d.m;render();break;
+   case 'startm':dispatch({t:'mission',m:+d.m});U.selM=null;break;
+   case 'retry':dispatch({t:'retry'});break;
+   case 'menu':dispatch({t:'menu'});break;
+   case 'giveup':if(confirm('이번 시도를 포기할까요? (실패로 처리돼요)'))dispatch({t:'giveup'});break;
+   case 'askans':dispatch({t:'ask_ans',seat:V,v:d.v});break;
+   case 'askpick':dispatch({t:'ask_pick',target:+d.t});break;
+   case 'abpref':dispatch({t:'ab_pref',seat:V,v:d.v});break;
+   case 'abA':U.abA=+d.t;render();break;
+   case 'abB':U.abB=+d.t;render();break;
+   case 'abset':dispatch({t:'ab_set',A:U.abA,B:U.abB});break;
+   case 'adjsel':{const i=+d.i;const k=U.sel.indexOf(i);if(k>=0)U.sel.splice(k,1);else{U.sel.push(i);if(U.sel.length>2)U.sel.shift();}render();break;}
+   case 'adjdo':dispatch({t:'adj',i:U.sel[0],j:U.sel[1]});break;
+   case 'adjskip':dispatch({t:'adj',skip:1});break;
+   case 'pick':dispatch({t:'pick',i:+d.i});break;
+   case 'cdans':dispatch({t:'cd_ans',seat:V,v:d.v});break;
+   case 'cdgive':dispatch({t:'cd_give',target:+d.t});break;
+   case 'xsel':U.xfer=+d.i;render();break;
+   case 'xto':dispatch({t:'xfer',i:U.xfer,to:+d.t});break;
+   case 'xskip':dispatch({t:'xfer',skip:1});break;
+   case 'dist':dispatch({t:'dist',dir:d.d});break;
+   case 'passsel':U.passCard=d.c;render();break;
+   case 'passdo':dispatch({t:'pass',seat:V,c:U.passCard});break;
+   case 'commtog':U.commOn=!U.commOn;U.commCard=null;render();break;
+   case 'commsel':U.commCard=d.c;render();break;
+   case 'commdo':dispatch({t:'comm',seat:V,c:U.commCard,pos:d.p});U.commOn=false;U.commCard=null;break;
+   case 'play':dispatch({t:'play',c:d.c});break;
+  }
+});
+(function boot(){
+  render();
+  let saved='';try{saved=localStorage.getItem('sc_room')||'';}catch(e){}
+  if(saved&&initFb()){
+    db.ref('spacecrew/rooms/'+saved+'/state').once('value').then(snap=>{
+      const v=snap.val();if(v&&JSON.parse(v).players.some(p=>p.id===myId))listen(saved);
+    }).catch(()=>{});
+  }
+})();
+</script>
+</body>
+</html>
