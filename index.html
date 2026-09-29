@@ -253,7 +253,9 @@ function ctrl(s,i){return isJ(s,i)?s.seats[s.commander].pid:s.seats[i].pid;}
 function say(s,m){s.msgs.push(m);if(s.msgs.length>60)s.msgs.shift();}
 function turn(s){return (s.trick.leader+s.trick.cards.length)%s.seats.length;}
 
-function newRoom(host){return {v:1,players:[host],phase:'lobby',log:{},msgs:[],missionNo:1,attempt:1,distressActive:false};}
+function genSave(){return Array.from({length:6},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*32)]).join('');}
+function newRoom(host){return {v:1,players:[host],phase:'lobby',log:{},msgs:[],missionNo:1,attempt:1,distressActive:false,saveCode:genSave()};}
+function nextOpen(log){for(let m=1;m<=50;m++)if(!log[m])return m;return 50;}
 function buildSeats(s){
   s.jarvis=s.players.length===2;
   s.seats=s.players.map(p=>({name:p.name,pid:p.id}));
@@ -500,6 +502,14 @@ function act(s,a){
   case 'retry':{
     if(s.phase!=='end'||s.result.ok)return null;
     s.attempt++;startAttempt(s);return s;}
+  case 'load':{
+    if(!isHost||!['lobby','setup'].includes(s.phase))return null;
+    if(typeof a.code!=='string'||!/^[A-Z0-9]{6}$/.test(a.code)||!a.log||typeof a.log!=='object')return null;
+    const lg={};
+    for(const k of Object.keys(a.log)){const m=+k,e=a.log[k];
+      if(!MIS[m]||!e||!Number.isInteger(e.a)||e.a<1||e.a>9999)return null;lg[m]={a:e.a,d:e.d?1:0};}
+    s.log=lg;s.saveCode=a.code;s.missionNo=nextOpen(lg);
+    say(s,`🗒️ 항해 일지를 불러왔어요 (저장 코드 ${a.code} · 완료 ${Object.keys(lg).length}/50)`);return s;}
   case 'menu':{
     if(s.phase!=='end'||!isHost)return null;
     s.phase='setup';return s;}
@@ -604,7 +614,7 @@ function listen(code){
   roomRef.child('state').on('value',snap=>{
     const v=snap.val();
     if(!v){ST=null;toast('방이 없어졌어요');leaveLocal();return;}
-    ST=JSON.parse(v);render();
+    ST=JSON.parse(v);autoSave();render();
   });
   try{localStorage.setItem('sc_room',code);}catch(e){}
 }
@@ -617,6 +627,33 @@ function dispatch(a,cb){
     const st=JSON.parse(cur);const ns=act(st,a);
     if(!ns)return;ns.v=(st.v||0)+1;return JSON.stringify(ns);
   },(err,ok)=>{if(err)toast('통신 오류: '+err.message);else if(!ok)toast('지금은 할 수 없는 행동이에요');if(cb)cb(ok);});
+}
+let lastSaved='';
+function autoSave(){
+  if(!ST||!ST.saveCode||!ST.players[0]||ST.players[0].id!==myId)return;
+  const lg=JSON.stringify(ST.log||{});
+  if(lg==='{}'||lg===lastSaved)return;
+  lastSaved=lg;
+  db.ref('spacecrew/saves/'+ST.saveCode).set({log:lg,updated:Date.now()}).catch(e=>{lastSaved='';toast('항해 일지 저장 실패: '+e.message);});
+}
+function loadSave(code){
+  code=(code||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(code.length!==6)return toast('저장 코드 6자리를 입력해 주세요');
+  db.ref('spacecrew/saves/'+code).once('value').then(snap=>{
+    const v=snap.val();if(!v)return toast('그런 저장 코드가 없어요');
+    let log;try{log=JSON.parse(v.log);}catch(e){return toast('저장 데이터가 손상됐어요');}
+    lastSaved=v.log;
+    dispatch({t:'load',code,log},ok=>{if(ok)toast('항해 일지를 불러왔어요!');});
+  }).catch(e=>toast('불러오기 실패: '+e.message));
+}
+function saveBox(s,host){
+  const done=Object.keys(s.log).length;
+  return `<div class="panel"><b>💾 항해 일지 저장</b>
+  <div class="row" style="margin-top:6px;justify-content:space-between"><div><div class="muted" style="font-size:12px">저장 코드 (미션을 성공할 때마다 자동 저장)</div>
+  <div class="code" style="font-size:30px;letter-spacing:5px;text-align:left">${s.saveCode||'-'}</div></div>
+  <div class="muted" style="font-size:13px">완료 ${done}/50</div></div>
+  <div class="muted" style="font-size:12.5px">이 코드를 적어 두면 다음 시간에 새 방에서 이어서 할 수 있어요.</div>
+  ${host?`<div class="row" style="margin-top:10px"><input class="inp" id="savecode" maxlength="6" placeholder="저장 코드 입력" style="flex:1;text-transform:uppercase;letter-spacing:3px"><button class="btn sm" data-a="loadsave">불러오기</button></div>`:''}</div>`;
 }
 function createRoom(name){
   if(!initFb())return toast('Firebase 설정을 먼저 넣어 주세요');
@@ -701,11 +738,12 @@ function lobbyH(s){
   <div class="muted" style="text-align:center;font-size:13px">친구들에게 이 코드를 알려 주세요 (2~5명)</div></div>
   <div class="panel"><b>승무원 (${s.players.length}/5)</b><div class="players">${s.players.map((p,i)=>`<span class="pchip">${i===0?'👑 ':''}${esc(p.name)}${p.id===myId?' (나)':''}</span>`).join('')}</div>
   <div class="muted" style="font-size:13px">자리 순서 = 참가 순서(시계 방향)입니다. ${s.players.length===2?'2명이면 JARVIS가 3번째 대원으로 함께해요.':''}</div></div>
+  ${saveBox(s,host)}
   ${host?`<div class="panel"><b>미션 선택</b>${missionPicker(s)}</div>`:`<div class="panel muted">방장이 미션을 고르면 시작해요…</div>`}
   <div class="row"><button class="btn ghost" data-a="rules">📖 규칙</button><button class="btn ghost" data-a="quit">나가기</button></div></div><div class="foot">made by m00n</div></div>`;
 }
 function missionPicker(s){
-  const m=U.selM||s.missionNo||1,n=s.seats?s.seats.length:(s.players.length===2?3:s.players.length);
+  const m=U.selM||(s.phase==='lobby'||s.phase==='setup'?(s.log[s.missionNo]&&s.missionNo<50?nextOpen(s.log):s.missionNo):s.missionNo)||1,n=s.seats?s.seats.length:(s.players.length===2?3:s.players.length);
   return `<div class="mgrid" style="margin:10px 0">${Array.from({length:50},(_,k)=>{const i=k+1,L=s.log[i],M=MIS[i];
    return `<button class="mbtn ${L?'done':''} ${M.g?'gold':''} ${i===m?'sel':''}" data-a="selm" data-m="${i}">${i}<small>${L?'✔ '+L.a+'회':M.t?'과제 '+M.t:'특수'}</small></button>`;}).join('')}</div>
   <div class="panel" style="background:#0c1238"><b>미션 ${m}</b>${missionLines(m,n).map(l=>`<div style="font-size:14px;margin-top:4px">${l}</div>`).join('')}
@@ -715,6 +753,7 @@ function setupH(s){
   const host=s.players[0].id===myId;
   const done=Object.keys(s.log).length;
   return `<div class="wrap"><div class="top"><span class="ttl">스페이스 크루</span><span class="mbadge">방 ${roomCode}</span><span class="spacer"></span><button class="btn ghost sm" data-a="rules">📖 규칙</button><button class="btn ghost sm" data-a="quit">나가기</button></div>
+  ${saveBox(s,host)}<div style="height:10px"></div>
   <div class="panel"><b>🗒️ 항해 일지</b> <span class="muted">완료 ${done}/50 · 총 시도 ${Object.values(s.log).reduce((a,l)=>a+l.a,0)}회</span>
   ${host?missionPicker(s):`<div class="muted" style="margin-top:8px">방장이 다음 미션을 고르고 있어요…</div>`}</div><div class="foot">made by m00n</div></div>`;
 }
@@ -865,7 +904,7 @@ function actH(s,V){
   case 'end':{
     const r=s.result,host=s.players[0].id===myId;
     return `<div class="result ${r.ok?'ok':'bad'}"><div class="big">${r.ok?'미션 성공!':'미션 실패'}</div>
-    <div>${r.ok?`기록: ${r.att}회${s.distressActive?' (조난 신호 +1 포함)':''}`:esc(r.reason)}</div>
+    <div>${r.ok?`기록: ${r.att}회${s.distressActive?' (조난 신호 +1 포함)':''}`:esc(r.reason)}</div>${r.ok&&s.saveCode?`<div class="muted" style="font-size:12.5px;margin-top:6px">💾 자동 저장됨 · 저장 코드 <b style="color:#fff;letter-spacing:2px">${s.saveCode}</b></div>`:''}
     <div class="row" style="justify-content:center;margin-top:12px">
     ${r.ok?(host&&s.missionNo<50?btn(`미션 ${s.missionNo+1} 도전 ▶`,'startm',`data-m="${s.missionNo+1}"`,'gold'):''):btn('🔁 다시 도전','retry','','gold')}
     ${host?btn('🗒️ 미션 선택','menu'):''}</div>${r.ok&&s.missionNo===50?'<div style="margin-top:10px">🌍 모든 미션 완료! 무사히 지구로 귀환했어요.</div>':''}</div>`;}
@@ -916,6 +955,7 @@ document.addEventListener('click',e=>{
    case 'startm':dispatch({t:'mission',m:+d.m});U.selM=null;break;
    case 'retry':dispatch({t:'retry'});break;
    case 'menu':dispatch({t:'menu'});break;
+   case 'loadsave':loadSave((document.getElementById('savecode')||{}).value);break;
    case 'giveup':if(confirm('이번 시도를 포기할까요? (실패로 처리돼요)'))dispatch({t:'giveup'});break;
    case 'askans':dispatch({t:'ask_ans',seat:V,v:d.v});break;
    case 'askpick':dispatch({t:'ask_pick',target:+d.t});break;
