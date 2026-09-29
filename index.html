@@ -615,18 +615,18 @@ function listen(code){
     const v=snap.val();
     if(!v){ST=null;toast('방이 없어졌어요');leaveLocal();return;}
     ST=JSON.parse(v);autoSave();render();
-  });
+  },e=>{console.error(e);toast('방 연결 오류: '+e.message);leaveLocal();});
   try{localStorage.setItem('sc_room',code);}catch(e){}
 }
 function leaveLocal(){if(roomRef)roomRef.child('state').off();roomRef=null;ST=null;roomCode=null;try{localStorage.removeItem('sc_room');}catch(e){}render();}
-function dispatch(a,cb){
+function dispatch(a,cb,noLocal){
   if(!roomRef)return;
   a.pid=myId;
   roomRef.child('state').transaction(cur=>{
     if(cur===null)return null;
     const st=JSON.parse(cur);const ns=act(st,a);
     if(!ns)return;ns.v=(st.v||0)+1;return JSON.stringify(ns);
-  },(err,ok)=>{if(err)toast('통신 오류: '+err.message);else if(!ok)toast('지금은 할 수 없는 행동이에요');if(cb)cb(ok);});
+  },(err,ok)=>{if(err)toast('통신 오류: '+err.message);else if(!ok)toast('지금은 할 수 없는 행동이에요');if(cb)cb(ok);},noLocal?false:true);
 }
 let lastSaved='';
 function autoSave(){
@@ -663,13 +663,17 @@ function createRoom(name){
 }
 function joinRoom(code,name){
   if(!initFb())return toast('Firebase 설정을 먼저 넣어 주세요');
-  code=code.toUpperCase().trim();
+  code=code.toUpperCase().replace(/[^A-Z]/g,'');
+  if(code.length!==4)return toast('방 코드는 영문 4글자예요 (한/영 키를 확인해 주세요)');
   db.ref('spacecrew/rooms/'+code+'/state').once('value').then(snap=>{
-    if(!snap.val())return toast('그런 방이 없어요');
+    if(!snap.val())return toast('그런 방이 없어요 ('+code+')');
     const st=JSON.parse(snap.val());
-    if(!st.players.some(p=>p.id===myId)&&st.phase!=='lobby')return toast('이미 게임이 시작된 방이에요');
-    listen(code);dispatch({t:'join',name});
-  });
+    if(!st.players.some(p=>p.id===myId)){
+      if(st.phase!=='lobby')return toast('이미 게임이 시작된 방이에요');
+      if(st.players.length>=5)return toast('방이 가득 찼어요 (최대 5명)');
+    }
+    listen(code);dispatch({t:'join',name},null,true);
+  }).catch(e=>{console.error(e);toast('방 접속 실패: '+(e&&e.message||e));});
 }
 
 /* ---------- 그래픽 ---------- */
